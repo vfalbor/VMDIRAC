@@ -31,6 +31,7 @@ __RCSID__ = "$Id: VirtualMachineDB.py 16 2010-03-15 11:39:29Z ricardo.graciani@g
 import types
 from DIRAC.Core.Base.DB import DB
 import DIRAC
+from DIRAC import gLogger, S_OK
 
 class VirtualMachineDB( DB ):
 
@@ -171,7 +172,7 @@ class VirtualMachineDB( DB ):
 
     return ( tableName, validStates, idName )
 
-  def checkImageStatus( self, imageName, runningPodName="" ):
+  def checkImageStatus( self, imageName, runningPodName = "" ):
     """ 
     Check Status of a given image
     Will insert a new Image in the DB if it does not exits
@@ -195,7 +196,7 @@ class VirtualMachineDB( DB ):
     imageStatus = self.checkImageStatus( imageName, runningPodName )
     if not imageStatus['OK']:
       return imageStatus
-    
+
     return self.__insertInstance( imageName, instanceName, endpoint, runningPodName )
 
   def setInstanceUniqueID( self, instanceID, uniqueID ):
@@ -344,7 +345,7 @@ class VirtualMachineDB( DB ):
 
     return DIRAC.S_OK( instancesDict )
 
-  def getInstancesByStatusAndEndpoint( self, status, endpoint  ):
+  def getInstancesByStatusAndEndpoint( self, status, endpoint ):
     """
     Get dictionary of Image Names with InstanceIDs in given status 
     """
@@ -402,7 +403,7 @@ class VirtualMachineDB( DB ):
 
     ( tableName, validStates, idName ) = self.__getTypeTuple( 'Instance' )
 
-    fields = ['Name', 'Endpoint','VMImageID', 'Status', 'LastUpdate' ]
+    fields = ['Name', 'Endpoint', 'VMImageID', 'Status', 'LastUpdate' ]
     values = [instanceName, endpoint, imageID, validStates[0], DIRAC.Time.toString() ]
     result = self.getRunningPodDict( runningPodName )
     if not result[ 'OK' ]:
@@ -986,6 +987,26 @@ class VirtualMachineDB( DB ):
     sqlQuery += " GROUP BY %s ORDER BY `Update` ASC" % groupby
     return self._query( sqlQuery )
 
+  def getRunningInstancesBEPHistory( self, timespan = 0, bucketSize = 900 ):
+    try:
+      bucketSize = max( 300, int( bucketSize ) )
+    except:
+      return DIRAC.S_ERROR( "Bucket has to be an integer" )
+    try:
+      timespan = max( 0, int( timespan ) )
+    except:
+      return DIRAC.S_ERROR( "Timespan has to be an integer" )
+
+    groupby = "FROM_UNIXTIME(UNIX_TIMESTAMP( h.`Update` ) - UNIX_TIMESTAMP( h.`Update` ) mod %d )" % bucketSize
+    sqlFields = [ groupby, " i.Endpoint, COUNT( DISTINCT( h.`VMInstanceID` ) ) " ]
+    sqlQuery = "SELECT %s FROM `vm_History` h, `vm_Instances` i" % ", ".join( sqlFields )
+    sqlCond = [ " h.VMInstanceID = i.VMInstanceID AND h.`Status` = 'Running'" ]
+    if timespan > 0:
+      sqlCond.append( "TIMESTAMPDIFF( SECOND, `Update`, UTC_TIMESTAMP() ) < %d" % timespan )
+    sqlQuery += " WHERE %s" % " AND ".join( sqlCond )
+    sqlQuery += " GROUP BY %s , EndPoint ORDER BY `Update` ASC" % groupby
+    return self._query( sqlQuery )
+
   def getRunningPodDict( self, runningPodName ):
     """
     Return from CS a Dictionary with RunningPod definition
@@ -997,7 +1018,7 @@ class VirtualMachineDB( DB ):
 
     if runningPodName not in definedRunningPods['Value']:
       return DIRAC.S_ERROR( 'RunningPod "%s" not defined' % runningPodName )
-  
+
     runningPodCSPath = '%s/%s' % ( runningPodsCSPath, runningPodName )
 
     runningPodDict = {}
@@ -1013,6 +1034,6 @@ class VirtualMachineDB( DB ):
     if 'CPUTime' in runningPodRequirementsDict['Value']:
       runningPodRequirementsDict['Value']['CPUTime'] = int( runningPodRequirementsDict['Value']['CPUTime'] )
     runningPodDict['Requirements'] = runningPodRequirementsDict['Value']
-  
+
     return DIRAC.S_OK( runningPodDict )
 

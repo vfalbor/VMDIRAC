@@ -57,7 +57,7 @@ class VirtualMachineManagerHandler( RequestHandler ):
     Check Status of a given image
     Will insert a new Instance in the DB
     """
-    return gVirtualMachineDB.insertInstance( imageName, instanceName, endpoint, runningPodName)
+    return gVirtualMachineDB.insertInstance( imageName, instanceName, endpoint, runningPodName )
 
   ###########################################################################
   types_setInstanceUniqueID = [ LongType, ( StringType, UnicodeType ) ]
@@ -119,8 +119,8 @@ class VirtualMachineManagerHandler( RequestHandler ):
       return result
     endpoint = result[ 'Value' ]
 
-    result = gVirtualMachineDB.declareInstanceHalting( vmId, load)
-    if not contextualization =='occi':
+    result = gVirtualMachineDB.declareInstanceHalting( vmId, load )
+    if not contextualization == 'occi':
       return result
     if not result[ 'OK' ]:
       return result
@@ -191,3 +191,11 @@ class VirtualMachineManagerHandler( RequestHandler ):
     Retrieve number of running instances in each bucket
     """
     return gVirtualMachineDB.getRunningInstancesHistory( timespan, bucketSize )
+
+  ###########################################################################
+  types_getRunningInstancesBEPHistory = [ IntType, IntType ]
+  def export_getRunningInstancesBEPHistory( self, timespan, bucketSize ):
+    """
+    Retrieve number of running instances in each bucket
+    """
+    return gVirtualMachineDB.getRunningInstancesBEPHistory( timespan, bucketSize )
